@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Easy Loans Ghana</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #f8fafc 0%, #eef2f6 100%);
+            padding: 1.5rem;
+        }
+        .welcome-card {
+            max-width: 520px;
+            width: 100%;
+            background: #ffffff;
+            padding: 3rem 2.5rem 2.8rem;
+            border-radius: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 20, 30, 0.12);
+            text-align: center;
+            transition: transform 0.25s ease;
+        }
+        .welcome-card:hover { transform: translateY(-4px); }
+        .brand-icon { font-size: 2.8rem; display: inline-block; margin-bottom: 0.2rem; }
+        .brand-name { font-size: 2.2rem; font-weight: 700; color: #0b2b3b; }
+        .brand-name span { color: #1a7f5c; }
+        .brand-tagline { font-size: 0.9rem; font-weight: 500; color: #5b6f7e; margin-top: 0.1rem; }
+        .divider { width: 70px; height: 4px; background: linear-gradient(90deg, #1a7f5c, #3baa7a); border-radius: 4px; margin: 1.2rem auto 1.6rem; }
+        .welcome-message h1 { font-size: 1.8rem; font-weight: 700; color: #0b2b3b; line-height: 1.2; margin-bottom: 0.5rem; }
+        .welcome-message h1 .highlight { color: #1a7f5c; }
+        .welcome-message p { font-size: 1rem; color: #3d5566; line-height: 1.6; max-width: 340px; margin: 0.25rem auto 0.8rem; }
+        .btn-apply {
+            display: inline-block;
+            background: #1a7f5c;
+            color: #ffffff;
+            font-size: 1.2rem;
+            font-weight: 600;
+            padding: 0.9rem 3rem;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.25s ease, transform 0.15s ease;
+            box-shadow: 0 8px 24px rgba(26, 127, 92, 0.30);
+            margin-top: 0.6rem;
+        }
+        .btn-apply:hover { background: #146a4b; transform: scale(1.02); }
+        .btn-apply:active { transform: scale(0.97); }
+        .footer-note { margin-top: 2rem; font-size: 0.8rem; color: #8a9caa; }
+        .footer-note span { font-weight: 600; color: #5b6f7e; }
+        @media (max-width: 480px) {
+            .welcome-card { padding: 2.2rem 1.5rem 2rem; border-radius: 2rem; }
+            .brand-name { font-size: 1.7rem; }
+            .welcome-message h1 { font-size: 1.5rem; }
+            .btn-apply { font-size: 1rem; padding: 0.8rem 2.4rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-card">
+        <div class="brand">
+            <div class="brand-icon">🏦</div>
+            <div class="brand-name">Easy <span>Loans</span> Ghana</div>
+            <div class="brand-tagline">• trusted • transparent • fast •</div>
+        </div>
+        <div class="divider"></div>
+        <div class="welcome-message">
+            <h1>Welcome to <br /><span class="highlight">Easy Loans</span> Ghana</h1>
+            <p>Your reliable partner for quick and affordable loans. Get started in minutes — no stress, no hidden fees.</p>
+        </div>
+        <a href="phone.html" class="btn-apply">Apply Now</a>
+        <div class="footer-note"><span>✔</span> Secure &bull; <span>✔</span> Fast approval</div>
+    </div>
+</body>
+</html>

