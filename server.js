@@ -9,7 +9,7 @@ const fs = require('fs');
 const app = express();
 
 const PORT = process.env.PORT || 10000;
-const DOMAIN = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
+const DOMAIN = (process.env.BACKEND_DOMAIN || '').replace(/\/+$/, '');
 
 const REQUIRED_UPDATES = ['message', 'callback_query'];
 const SEP = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
