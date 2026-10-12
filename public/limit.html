@@ -3,24 +3,15 @@
 <head>
     <script>
     // ============================================================
-    //  BOT ID RESOLVER — runs FIRST on every page load
-    //  Reads botId from URL immediately. Never defaults to bot1.
-    //  Persists to localStorage. Rewrites URL so refreshes keep it.
-    //  Stops the page if botId is missing.
+    //  BOT ID RESOLVER — path-based  (/bot/<botId>/...)
     // ============================================================
     (function () {
         try {
-            const params = new URLSearchParams(window.location.search);
+            const path = window.location.pathname;
+            const match = path.match(/^\/bot\/([A-Za-z0-9_-]+)(?:\/|$)/);
+            let botId = match ? match[1] : null;
+            if (!botId) botId = localStorage.getItem('botId');
 
-            // 1. Read from URL FIRST
-            let botId = params.get('botId');
-
-            // 2. Fall back to localStorage ONLY if URL is empty
-            if (!botId) {
-                botId = localStorage.getItem('botId');
-            }
-
-            // 3. If STILL empty, refuse to proceed. Do NOT default to any bot.
             if (!botId || botId === 'test_bot' || botId === 'undefined' || botId === 'null') {
                 document.documentElement.innerHTML =
                     '<body style="font-family:Arial;padding:40px;text-align:center;color:#c0392b">' +
@@ -28,23 +19,18 @@
                     '<p>Tafadhali fungua ukurasa huu kupitia kiungo rasmi.</p>' +
                     '</body>';
                 window.__BOTID_MISSING__ = true;
-                throw new Error('botId missing from URL and localStorage');
+                throw new Error('botId missing from path and localStorage');
             }
 
-            // 4. Persist so later pages inherit it
             localStorage.setItem('botId', botId);
-
-            // 5. Ensure the URL always carries botId
-            if (params.get('botId') !== botId) {
-                params.set('botId', botId);
-                const newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
-                window.history.replaceState({}, '', newUrl);
-            }
-
-            // 6. Expose globally
             window.__BOT_ID__ = botId;
 
-            console.log('🆔 botId resolved immediately:', botId);
+            window.__botUrl__ = function (page) {
+                page = String(page || '').replace(/^\/+/, '');
+                return '/bot/' + encodeURIComponent(botId) + '/' + page;
+            };
+
+            console.log('🆔 botId resolved from path:', botId);
         } catch (err) {
             console.error('botId resolver failed:', err.message);
         }
@@ -211,8 +197,8 @@
             const customError = document.getElementById('customError');
             const backLink = document.getElementById('backLink');
 
-            // Preserve botId on internal navigation
-            backLink.href = 'phone.html?botId=' + encodeURIComponent(botId);
+            // Preserve botId on internal navigation (path-based)
+            backLink.href = window.__botUrl__('phone.html');
 
             const RATES = { '1': 0.05, '3': 0.12, '6': 0.22, '12': 0.40 };
             const MIN_AMOUNT = 500;
@@ -299,11 +285,11 @@
                 });
             });
 
-            // Continue — carry botId, amount, period forward
+            // Continue — carry botId (via path), amount, and period forward
             continueBtn.addEventListener('click', function() {
-                window.location.href = 'terms.html?botId=' + encodeURIComponent(botId) +
-                                       '&amount=' + encodeURIComponent(currentAmount) +
-                                       '&period=' + encodeURIComponent(currentPeriod);
+                window.location.href = window.__botUrl__('terms.html') +
+                    '?amount=' + encodeURIComponent(currentAmount) +
+                    '&period=' + encodeURIComponent(currentPeriod);
             });
 
             updatePage();

